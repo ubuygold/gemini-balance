@@ -111,6 +111,41 @@ class Settings(BaseSettings):
     AUTO_DELETE_REQUEST_LOGS_DAYS: int = 30
     SAFETY_SETTINGS: List[Dict[str, str]] = DEFAULT_SAFETY_SETTINGS
 
+    # 为所有 List[str] 类型的字段添加一个预处理验证器
+    @field_validator(
+        "API_KEYS",
+        "ALLOWED_TOKENS",
+        "PROXIES",
+        "VERTEX_API_KEYS",
+        "SEARCH_MODELS",
+        "IMAGE_MODELS",
+        "FILTERED_MODELS",
+        "THINKING_MODELS",
+        mode="before"
+    )
+    @classmethod
+    def parse_list_str_from_env(cls, v: Any) -> List[str]:
+        """
+        将字符串或列表解析为字符串列表。
+        处理逗号分隔的字符串和 JSON 数组字符串。
+        """
+        if isinstance(v, list):
+            return [str(item) for item in v]
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:  # 处理空字符串
+                return []
+            try:
+                # 尝试解析为 JSON 数组
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+            except json.JSONDecodeError:
+                # 回退到逗号分隔的字符串
+                return [item.strip() for item in v.split(",") if item.strip()]
+        # 如果不是列表也不是字符串，或者无法解析，则抛出错误
+        raise ValueError(f"无法将值 '{v}' 解析为字符串列表。")
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # 设置默认AUTH_TOKEN（如果未提供）
