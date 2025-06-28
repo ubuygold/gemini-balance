@@ -3,7 +3,7 @@ volumes:
 services:
   gemini-balance:
     build: .
-    container_name: gemini-balance
+    container_name: gemini-balance-dev
     restart: unless-stopped
     ports:
       - "10000:8000"
@@ -20,7 +20,7 @@ services:
       start_period: 10s
   mysql:
     image: mysql:8
-    container_name: gemini-balance-mysql
+    container_name: gemini-balance-mysql-dev
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: your_root_password
