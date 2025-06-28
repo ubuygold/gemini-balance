@@ -4,9 +4,14 @@
 
 import datetime
 import json
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Annotated
 
-from pydantic import ValidationError, ValidationInfo, field_validator
+from pydantic import (
+    BeforeValidator,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 from pydantic_settings import BaseSettings
 from sqlalchemy import insert, select, update
 
@@ -25,6 +30,33 @@ from app.core.constants import (
     MAX_RETRIES,
 )
 from app.log.logger import Logger
+
+
+def parse_list_str(v: Any) -> List[str]:
+    """
+    将字符串或列表解析为字符串列表。
+    处理逗号分隔的字符串和 JSON 数组字符串。
+    """
+    if isinstance(v, list):
+        return [str(item) for item in v]
+    if isinstance(v, str):
+        v = v.strip()
+        if not v:  # 处理空字符串
+            return []
+        try:
+            # 尝试解析为 JSON 数组
+            parsed = json.loads(v)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+        except json.JSONDecodeError:
+            # 回退到逗号分隔的字符串
+            return [item.strip() for item in v.split(",") if item.strip()]
+    # 如果不是列表也不是字符串，或者无法解析，则返回空列表以避免启动失败
+    return []
+
+
+# 定义一个可重用的类型，该类型使用上面的函数进行预处理
+ListFromStr = Annotated[List[str], BeforeValidator(parse_list_str)]
 
 
 class Settings(BaseSettings):
@@ -51,27 +83,29 @@ class Settings(BaseSettings):
         return v
 
     # API相关配置
-    API_KEYS: Any
-    ALLOWED_TOKENS: Any
+    API_KEYS: ListFromStr
+    ALLOWED_TOKENS: ListFromStr
     BASE_URL: str = f"https://generativelanguage.googleapis.com/{API_VERSION}"
     AUTH_TOKEN: str = ""
     MAX_FAILURES: int = 3
     TEST_MODEL: str = DEFAULT_MODEL
     TIME_OUT: int = DEFAULT_TIMEOUT
     MAX_RETRIES: int = MAX_RETRIES
-    PROXIES: Any = []
+    PROXIES: ListFromStr = []
     PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY: bool = True  # 是否使用一致性哈希来选择代理
-    VERTEX_API_KEYS: Any = []
-    VERTEX_EXPRESS_BASE_URL: str = "https://aiplatform.googleapis.com/v1beta1/publishers/google"
- 
+    VERTEX_API_KEYS: ListFromStr = []
+    VERTEX_EXPRESS_BASE_URL: str = (
+        "https://aiplatform.googleapis.com/v1beta1/publishers/google"
+    )
+
     # 模型相关配置
-    SEARCH_MODELS: Any = ["gemini-2.0-flash-exp"]
-    IMAGE_MODELS: Any = ["gemini-2.0-flash-exp"]
-    FILTERED_MODELS: Any = DEFAULT_FILTER_MODELS
+    SEARCH_MODELS: ListFromStr = ["gemini-2.0-flash-exp"]
+    IMAGE_MODELS: ListFromStr = ["gemini-2.0-flash-exp"]
+    FILTERED_MODELS: ListFromStr = DEFAULT_FILTER_MODELS
     TOOLS_CODE_EXECUTION_ENABLED: bool = False
     SHOW_SEARCH_LINK: bool = True
     SHOW_THINKING_PROCESS: bool = True
-    THINKING_MODELS: Any = []
+    THINKING_MODELS: ListFromStr = []
     THINKING_BUDGET_MAP: Dict[str, float] = {}
 
     # 图像生成相关配置
@@ -110,41 +144,6 @@ class Settings(BaseSettings):
     AUTO_DELETE_REQUEST_LOGS_ENABLED: bool = False
     AUTO_DELETE_REQUEST_LOGS_DAYS: int = 30
     SAFETY_SETTINGS: List[Dict[str, str]] = DEFAULT_SAFETY_SETTINGS
-
-    # 为所有 List[str] 类型的字段添加一个预处理验证器
-    @field_validator(
-        "API_KEYS",
-        "ALLOWED_TOKENS",
-        "PROXIES",
-        "VERTEX_API_KEYS",
-        "SEARCH_MODELS",
-        "IMAGE_MODELS",
-        "FILTERED_MODELS",
-        "THINKING_MODELS",
-        mode="before"
-    )
-    @classmethod
-    def parse_list_str_from_env(cls, v: Any) -> List[str]:
-        """
-        将字符串或列表解析为字符串列表。
-        处理逗号分隔的字符串和 JSON 数组字符串。
-        """
-        if isinstance(v, list):
-            return [str(item) for item in v]
-        if isinstance(v, str):
-            v = v.strip()
-            if not v:  # 处理空字符串
-                return []
-            try:
-                # 尝试解析为 JSON 数组
-                parsed = json.loads(v)
-                if isinstance(parsed, list):
-                    return [str(item) for item in parsed]
-            except json.JSONDecodeError:
-                # 回退到逗号分隔的字符串
-                return [item.strip() for item in v.split(",") if item.strip()]
-        # 如果不是列表也不是字符串，或者无法解析，则抛出错误
-        raise ValueError(f"无法将值 '{v}' 解析为字符串列表。")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
