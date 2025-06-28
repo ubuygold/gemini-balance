@@ -36,22 +36,41 @@ def parse_list_str(v: Any) -> List[str]:
     """
     将字符串或列表解析为字符串列表。
     处理逗号分隔的字符串和 JSON 数组字符串。
+    增强错误处理，确保在任何情况下都能返回有效结果。
     """
-    if isinstance(v, list):
-        return [str(item) for item in v]
-    if isinstance(v, str):
-        v = v.strip()
-        if not v:  # 处理空字符串
-            return []
-        try:
-            # 尝试解析为 JSON 数组
-            parsed = json.loads(v)
-            if isinstance(parsed, list):
-                return [str(item) for item in parsed]
-        except json.JSONDecodeError:
-            # 回退到逗号分隔的字符串
-            return [item.strip() for item in v.split(",") if item.strip()]
-    # 如果不是列表也不是字符串，或者无法解析，则返回空列表以避免启动失败
+    try:
+        if isinstance(v, list):
+            return [str(item) for item in v]
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:  # 处理空字符串
+                return []
+
+            # 处理常见的格式问题
+            # 移除可能的引号包围
+            if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                v = v[1:-1]
+
+            try:
+                # 尝试解析为 JSON 数组
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+                elif isinstance(parsed, str):
+                    # 如果 JSON 解析出单个字符串，将其作为单元素列表
+                    return [parsed]
+            except json.JSONDecodeError:
+                # 回退到逗号分隔的字符串
+                return [item.strip() for item in v.split(",") if item.strip()]
+
+        # 如果是其他类型，尝试转换为字符串
+        if v is not None:
+            return [str(v)]
+    except Exception as e:
+        # 记录错误但不抛出异常
+        print(f"Warning: Error parsing list value {repr(v)}: {e}")
+
+    # 最终回退：返回空列表以避免启动失败
     return []
 
 
@@ -163,14 +182,20 @@ except Exception as e:
     # 临时清除可能有问题的环境变量
     import os
     problematic_vars = ['API_KEYS', 'ALLOWED_TOKENS', 'SEARCH_MODELS', 'IMAGE_MODELS',
-                       'FILTERED_MODELS', 'THINKING_MODELS', 'VERTEX_API_KEYS', 'PROXIES']
+                       'FILTERED_MODELS', 'THINKING_MODELS', 'VERTEX_API_KEYS', 'PROXIES',
+                       'THINKING_BUDGET_MAP', 'SAFETY_SETTINGS']
 
     original_values = {}
     for var in problematic_vars:
         if var in os.environ:
             original_values[var] = os.environ[var]
-            # 临时设置为空列表的 JSON 格式
-            os.environ[var] = '[]'
+            # 根据字段类型设置合适的默认值
+            if var in ['THINKING_BUDGET_MAP']:
+                os.environ[var] = '{}'  # 空字典
+            elif var in ['SAFETY_SETTINGS']:
+                os.environ[var] = '[]'  # 空列表
+            else:
+                os.environ[var] = '[]'  # 其他列表类型字段
 
     # 临时设置数据库类型为 sqlite 以避免 MySQL 验证错误
     if 'DATABASE_TYPE' in os.environ:
