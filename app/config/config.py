@@ -153,7 +153,40 @@ class Settings(BaseSettings):
 
 
 # 创建全局配置实例
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as e:
+    # 如果配置加载失败，打印详细错误信息并使用安全的默认配置
+    print(f"配置加载失败: {e}")
+    print("使用安全的默认配置...")
+
+    # 临时清除可能有问题的环境变量
+    import os
+    problematic_vars = ['API_KEYS', 'ALLOWED_TOKENS', 'SEARCH_MODELS', 'IMAGE_MODELS',
+                       'FILTERED_MODELS', 'THINKING_MODELS', 'VERTEX_API_KEYS', 'PROXIES']
+
+    original_values = {}
+    for var in problematic_vars:
+        if var in os.environ:
+            original_values[var] = os.environ[var]
+            # 临时设置为空列表的 JSON 格式
+            os.environ[var] = '[]'
+
+    # 临时设置数据库类型为 sqlite 以避免 MySQL 验证错误
+    if 'DATABASE_TYPE' in os.environ:
+        original_values['DATABASE_TYPE'] = os.environ['DATABASE_TYPE']
+    os.environ['DATABASE_TYPE'] = 'sqlite'
+
+    try:
+        settings = Settings()
+        print("使用默认配置成功创建 Settings 实例")
+    except Exception as e2:
+        print(f"即使使用默认配置也失败: {e2}")
+        raise e2
+    finally:
+        # 恢复原始环境变量
+        for var, value in original_values.items():
+            os.environ[var] = value
 
 
 def _parse_db_value(key: str, db_value: str, target_type: Type) -> Any:
@@ -490,7 +523,7 @@ async def sync_initial_settings():
             )
 
         # 刷新日志等级
-        Logger.update_log_levels(final_memory_settings.get("LOG_LEVEL"))
+        Logger.update_log_levels(final_memory_settings.get("LOG_LEVEL", "INFO"))
 
     except Exception as e:
         logger.error(f"An unexpected error occurred during initial settings sync: {e}")
