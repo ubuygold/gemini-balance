@@ -51,27 +51,27 @@ class Settings(BaseSettings):
         return v
 
     # API相关配置
-    API_KEYS: List[str]
-    ALLOWED_TOKENS: List[str]
+    API_KEYS: Any
+    ALLOWED_TOKENS: Any
     BASE_URL: str = f"https://generativelanguage.googleapis.com/{API_VERSION}"
     AUTH_TOKEN: str = ""
     MAX_FAILURES: int = 3
     TEST_MODEL: str = DEFAULT_MODEL
     TIME_OUT: int = DEFAULT_TIMEOUT
     MAX_RETRIES: int = MAX_RETRIES
-    PROXIES: List[str] = []
+    PROXIES: Any = []
     PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY: bool = True  # 是否使用一致性哈希来选择代理
-    VERTEX_API_KEYS: List[str] = []
+    VERTEX_API_KEYS: Any = []
     VERTEX_EXPRESS_BASE_URL: str = "https://aiplatform.googleapis.com/v1beta1/publishers/google"
  
     # 模型相关配置
-    SEARCH_MODELS: List[str] = ["gemini-2.0-flash-exp"]
-    IMAGE_MODELS: List[str] = ["gemini-2.0-flash-exp"]
-    FILTERED_MODELS: List[str] = DEFAULT_FILTER_MODELS
+    SEARCH_MODELS: Any = ["gemini-2.0-flash-exp"]
+    IMAGE_MODELS: Any = ["gemini-2.0-flash-exp"]
+    FILTERED_MODELS: Any = DEFAULT_FILTER_MODELS
     TOOLS_CODE_EXECUTION_ENABLED: bool = False
     SHOW_SEARCH_LINK: bool = True
     SHOW_THINKING_PROCESS: bool = True
-    THINKING_MODELS: List[str] = []
+    THINKING_MODELS: Any = []
     THINKING_BUDGET_MAP: Dict[str, float] = {}
 
     # 图像生成相关配置
